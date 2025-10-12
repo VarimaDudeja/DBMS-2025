@@ -6,7 +6,6 @@ It is hosted on **Supabase (PostgreSQL)**.
 
 ## Files
 - `schema.sql` → Creates all tables and relationships.
-- `insert_data.sql` → Inserts initial sample data.
+- `insert_data.sql` → Inserts the extracted data into the tables.
 
-## Connection
-To connect from your code (Python/JS/etc.), create a `.env` file:
+
