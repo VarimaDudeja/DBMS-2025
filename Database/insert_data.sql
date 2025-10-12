@@ -1,4 +1,22 @@
 -- Insert publisher (ignore if already exists)
+import json
+
+# Assuming your extracted dict is stored in variable `data`
+record = {
+    "title": data.get("title"),
+    "author": data.get("author"),
+    "edition": data.get("edition"),
+    "isbn_international": data.get("ISBN", {}).get("international"),
+    "isbn_indian": data.get("ISBN", {}).get("indian_reprint"),
+    "publisher_original": data.get("publisher", {}).get("original"),
+    "publisher_reprint": data.get("publisher", {}).get("reprint"),
+    "published_date": data.get("published_date"),
+    "contributors": json.dumps(data.get("contributors"))  # store as JSON string
+}
+
+# Then your Supabase insert (example)
+supabase.table("books").insert(record).execute()
+ 
 INSERT INTO publishers (name)
 VALUES ('{publisher_name}')
 ON CONFLICT (name) DO NOTHING;
