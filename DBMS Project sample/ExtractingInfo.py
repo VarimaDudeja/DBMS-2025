@@ -8,6 +8,9 @@ from PIL import Image
 import psycopg2
 import os
 from datetime import datetime
+import json
+from typing import Dict, Any, List, Optional, Tuple
+
 
 # Load NLP model
 try:
@@ -35,7 +38,7 @@ headers = {
     "Prefer": "return=representation"
 }
 
-# Basic text extraction function
+# Enhanced text extraction
 def extract_text(image_path):
     try:
         img = cv2.imread(image_path)
@@ -44,17 +47,15 @@ def extract_text(image_path):
 
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         
-        # Apply different preprocessing techniques
+        # Multiple preprocessing techniques
         _, thresh1 = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         thresh2 = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
                                        cv2.THRESH_BINARY, 11, 2)
         
-        # Try multiple OCR configurations
         configs = [
             '--psm 6',  # Uniform block of text
-            '--psm 4',  # Single column of text  
-            '--psm 3',  # Fully automatic page segmentation
-            '--psm 11'  # Sparse text
+            '--psm 4',  # Single column of text
+            '--psm 3'   # Fully automatic page segmentation
         ]
         
         best_text = ""
@@ -71,412 +72,493 @@ def extract_text(image_path):
         print(f"Error in text extraction: {e}")
         return ""
 
-# Extract comprehensive data from both images
-def extract_all_possible_data(image1_path, image2_path):
-    """
-    Extract all possible book data from both images
-    Returns dict with title, authors, publisher, isbn, publication_date
-    """
-    print("🔍 Extracting all possible data from images...")
-    
-    # Extract from both images
-    text1 = extract_text(image1_path)
-    text2 = extract_text(image2_path)
-    combined_text = text1 + "\n" + text2
-    
-    print("Combined extracted text from both images:")
-    print("=" * 50)
-    print(combined_text)
-    print("=" * 50)
-    
-    extracted_data = {
-        "title": "",
-        "authors": [],
-        "publisher": "",
-        "isbn": "",
-        "publication_date": ""
-    }
-    
-    lines = [line.strip() for line in combined_text.split('\n') if line.strip()]
-    
-    # Extract ISBN (highest priority - most reliable from images)
-    isbn_patterns = [
-        r'ISBN[-:\s]*([\d\-Xx]{10,17})',
-        r'ISBN\s*[^:\n]*[:]?\s*([\d\-Xx]{10,17})',
-        r'([\d\-]{9,17}[Xx]?)'
-    ]
-    
-    for line in lines:
-        for pattern in isbn_patterns:
-            matches = re.findall(pattern, line, re.IGNORECASE)
-            for match in matches:
-                isbn_clean = re.sub(r'[^\dXx]', '', match.upper())
-                if len(isbn_clean) in [10, 13] and not extracted_data["isbn"]:
-                    extracted_data["isbn"] = isbn_clean
-                    print(f"✅ Extracted ISBN from image: {isbn_clean}")
-                    break
-    
-    # Extract Title
-    for i, line in enumerate(lines[:8]):  # Check first 8 lines
-        line_clean = re.sub(r'[^\w\s\-\',\.!?]', '', line).strip()
-        if (len(line_clean) >= 5 and 
-            line_clean[0].isupper() and
-            2 <= len(line_clean.split()) <= 8 and
-            not any(keyword in line_clean.lower() for keyword in [
-                'by', 'author', 'publisher', 'published', 'copyright', 
-                'edition', 'isbn', 'sale', 'cover', 'only'
-            ])):
-            extracted_data["title"] = line_clean
-            print(f"✅ Extracted title from image: '{line_clean}'")
-            break
-    
-    # Extract Authors
-    for line in lines:
-        line_lower = line.lower()
-        if 'by ' in line_lower and len(line) < 100:
-            author_part = line.split('by ')[-1].strip()
-            # Clean author name
-            author_clean = re.sub(r'[^\w\s\-\',\.]', '', author_part).strip()
-            if (author_clean and len(author_clean.split()) <= 4 and
-                not any(pub_word in author_clean.lower() for pub_word in ['inc', 'ltd', 'media', 'press'])):
-                extracted_data["authors"].append(author_clean)
-                print(f"✅ Extracted author from image: '{author_clean}'")
-    
-    # Extract Publisher
-    for line in lines:
-        line_lower = line.lower()
-        if any(keyword in line_lower for keyword in ['published by', 'publisher:']):
-            if 'published by' in line_lower:
-                pub_part = line.split('published by')[-1].strip()
-            else:
-                pub_part = line.split('publisher:')[-1].strip()
-            
-            pub_clean = re.sub(r'[,\s]*(?:all rights|reserved|copyright).*$', '', pub_part, flags=re.IGNORECASE)
-            if pub_clean and len(pub_clean) > 3:
-                extracted_data["publisher"] = pub_clean
-                print(f"✅ Extracted publisher from image: '{pub_clean}'")
-                break
-    
-    # Extract Publication Date
-    date_patterns = [
-        r'(?:published|copyright|©)\s*(?:in\s*)?(\d{4})',
-        r'(\d{4})\s*(?:edition|printing)',
-        r'first published\s*(\d{4})'
-    ]
-    
-    for line in lines:
-        for pattern in date_patterns:
-            date_match = re.search(pattern, line.lower())
-            if date_match and not extracted_data["publication_date"]:
-                extracted_data["publication_date"] = date_match.group(1)
-                print(f"✅ Extracted publication date from image: {date_match.group(1)}")
-                break
-    
-    print("📋 Image extraction summary:")
-    print(f"   Title: {extracted_data['title']}")
-    print(f"   Authors: {extracted_data['authors']}")
-    print(f"   Publisher: {extracted_data['publisher']}")
-    print(f"   ISBN: {extracted_data['isbn']}")
-    print(f"   Publication Date: {extracted_data['publication_date']}")
-    
-    return extracted_data
+# --- Configuration ---
+GOOGLE_BOOKS_API_URL = "https://www.googleapis.com/books/v1/volumes"
+OPEN_LIBRARY_SEARCH_URL = "https://openlibrary.org/search.json"
+API_TIMEOUT = 10
 
-def parse_google_books_response(book_item):
-    """Parse Google Books API response into standardized format"""
-    book_info = book_item["volumeInfo"]
-    
-    # Extract industry identifiers
-    isbn_10 = ""
-    isbn_13 = ""
-    for identifier in book_info.get("industryIdentifiers", []):
-        if identifier["type"] == "ISBN_10":
-            isbn_10 = identifier["identifier"]
-        elif identifier["type"] == "ISBN_13":
-            isbn_13 = identifier["identifier"]
-    
-    return {
-        "title": book_info.get("title", ""),
-        "authors": book_info.get("authors", []),
-        "publisher": book_info.get("publisher", ""),
-        "publishedDate": book_info.get("publishedDate", ""),
-        "description": book_info.get("description", ""),
-        "pageCount": book_info.get("pageCount", ""),
-        "categories": book_info.get("categories", []),
-        "isbn_10": isbn_10,
-        "isbn_13": isbn_13,
-        "language": book_info.get("language", ""),
-        "source": "google_books"
-    }
+# --- Helper Function for ISBN Extraction ---
 
-def fetch_book_data_by_isbn(isbn):
-    try:
-        clean_isbn = re.sub(r'[^\dXx]', '', isbn).upper()
-        if not clean_isbn:
-            return None
-            
-        url = f"https://www.googleapis.com/books/v1/volumes?q=isbn:{clean_isbn}"
-        response = requests.get(url, timeout=10)
-        
-        if response.status_code == 200:
-            data = response.json()
-            if "items" in data and len(data["items"]) > 0:
-                return parse_google_books_response(data["items"][0])
-        return None
-            
-    except Exception as e:
-        print(f"ISBN API error: {e}")
-        return None
-
-def fetch_book_data_by_title(title):
-    try:
-        clean_title = re.sub(r'[^\w\s]', '', title).strip()
-        if not clean_title:
-            return None
-            
-        url = f"https://www.googleapis.com/books/v1/volumes?q=intitle:{clean_title}"
-        response = requests.get(url, timeout=10)
-        
-        if response.status_code == 200:
-            data = response.json()
-            if "items" in data and len(data["items"]) > 0:
-                return parse_google_books_response(data["items"][0])
-        return None
-            
-    except Exception as e:
-        print(f"Title API error: {e}")
-        return None
-
-def fetch_book_data_enhanced(extracted_data):
+def extract_isbn_from_text(text: str) -> Optional[str]:
     """
-    Try multiple API strategies to get complete book data
-    Priority: ISBN lookup (most reliable) > Title lookup
+    Scans a large block of text for a valid ISBN-10 or ISBN-13 pattern.
     """
-    book_data = None
+    # Pattern to find ISBN-13 or ISBN-10, tolerating hyphens/spaces and 'ISBN' prefix
+    pattern = r'(?:ISBN(?:-1[03])?:?\s*)?((?:97[8-9]\s?[-]?\s?)?\d{1,5}\s?[-]?\s?\d{1,7}\s?[-]?\s?\d{1,6}\s?[-]?\s?[\dxX])'
     
-    # STRATEGY 1: ISBN lookup (most reliable)
-    if extracted_data["isbn"]:
-        print(f"🔍 STRATEGY 1: ISBN lookup for {extracted_data['isbn']}")
-        book_data = fetch_book_data_by_isbn(extracted_data["isbn"])
-        if book_data:
-            print("✅ Success with ISBN lookup")
-            print(f"   Authors from ISBN API: {book_data.get('authors', [])}")
-            return book_data
+    matches = re.findall(pattern, text, re.IGNORECASE)
     
-    # STRATEGY 2: Title lookup
-    if extracted_data["title"]:
-        print(f"🔍 STRATEGY 2: Title lookup for '{extracted_data['title']}'")
-        book_data = fetch_book_data_by_title(extracted_data["title"])
-        if book_data:
-            print("✅ Success with Title lookup")
-            print(f"   Authors from Title API: {book_data.get('authors', [])}")
-            return book_data
-    
-    # STRATEGY 3: Enhanced image extraction with API author lookup
-    if extracted_data["title"]:
-        print("⚠️ Using image-extracted data with API author enhancement")
+    for match in matches:
+        cleaned_isbn = re.sub(r'[^\dXx]', '', match).upper()
         
-        # Try to get authors using ISBN if available (most reliable)
-        authors_from_api = None
-        if extracted_data["isbn"]:
-            book_data = fetch_book_data_by_isbn(extracted_data["isbn"])
-            if book_data:
-                authors_from_api = book_data.get("authors")
-        
-        # Fallback to title-based author lookup
-        if not authors_from_api:
-            book_data = fetch_book_data_by_title(extracted_data["title"])
-            if book_data:
-                authors_from_api = book_data.get("authors")
-        
-        if authors_from_api:
-            print(f"✅ Enhanced authors via API: {authors_from_api}")
-            extracted_data["authors"] = authors_from_api
-        else:
-            print("❌ No authors found via API, using image-extracted authors")
-        
-        book_data = {
-            "title": extracted_data["title"],
-            "authors": extracted_data["authors"] or ["Unknown Author"],
-            "publisher": extracted_data["publisher"] or "Unknown Publisher",
-            "publishedDate": extracted_data["publication_date"] or "",
-            "isbn_13": extracted_data["isbn"] or "",
-            "source": "image_extraction_with_api_authors"
-        }
-        return book_data
-    
-    print("❌ All API strategies failed")
+        if len(cleaned_isbn) in [10, 13]:
+            return cleaned_isbn
+            
     return None
 
-def extract_subject_with_nlp(title, description=""):
+# --- Step 1: Dynamic OCR & Information Extraction ---
+
+def extract_info_from_images(image_paths: List[str]) -> Dict[str, str]:
     """
-    Use NLP to extract the main subject/topic of the book
-    Returns a meaningful subject heading
+    Performs OCR on all provided images and aggregates the text.
+    The primary goal is to get a broad text dump (for title/author) and a precise ISBN.
+    """
+    if not image_paths:
+         return {"raw_text_dump": "", "isbn": None}
+         
+    print(f"--- 📚 Running OCR on {len(image_paths)} images. ---")
+    
+    full_text_dump = []
+    found_isbn = None
+    
+    for path in image_paths:
+        raw_text = ""
+        try:
+            img = Image.open(path)
+            raw_text = pytesseract.image_to_string(img)
+        except pytesseract.TesseractNotFoundError:
+            print("ERROR: Tesseract not found. Cannot perform OCR.")
+            return {"raw_text_dump": "error", "isbn": None}
+        except FileNotFoundError:
+            print(f"ERROR: Image file not found at {path}. Skipping.")
+            continue
+        except Exception as e:
+            print(f"ERROR during processing {path}: {e}")
+            continue
+
+        clean_text = ' '.join(raw_text.split())
+        full_text_dump.append(clean_text)
+        
+        # Look for the ISBN in all pages (prioritizes the first valid one found)
+        if not found_isbn:
+            found_isbn = extract_isbn_from_text(clean_text)
+
+    combined_text = " ".join(full_text_dump)
+    print(f"✅ OCR successful. ISBN found: {found_isbn}")
+    
+    return {
+        "raw_text_dump": combined_text,
+        "isbn": found_isbn
+    }
+
+# --- Step 2 & 3: Dynamic API Lookup (ISBN Priority) ---
+
+def search_book_apis(ocr_data: Dict[str, str]) -> Tuple[List[Dict[str, Any]], Optional[str]]:
+    """
+    Prioritizes ISBN search, then falls back to text search using the combined OCR dump.
+    """
+    isbn = ocr_data.get("isbn")
+    raw_text = ocr_data.get("raw_text_dump", "")
+    
+    # ------------------ 2a. Primary Search: ISBN (Google Books) ------------------
+    if isbn:
+        print(f"\n--- 🌐 Searching Google Books (Primary: ISBN) with ISBN: {isbn} ---")
+        google_params = {"q": f"isbn:{isbn}", "maxResults": 1}
+        try:
+            response = requests.get(GOOGLE_BOOKS_API_URL, params=google_params, timeout=API_TIMEOUT)
+            response.raise_for_status()
+            data = response.json()
+            if data.get('totalItems', 0) > 0 and 'items' in data:
+                print("✅ Found match on Google Books using ISBN.")
+                return data['items'], 'google'
+        except requests.exceptions.RequestException as e:
+            print(f"An error occurred during ISBN Google search: {e}")
+
+    # ------------------ 2b. Secondary Search: Full Text (Google Books) ------------------
+    if raw_text and raw_text != "error":
+        print(f"\n--- 🌐 Searching Google Books (Secondary: Text) with query: '{raw_text[:50]}...' ---")
+        google_params = {"q": raw_text, "maxResults": 5}
+        try:
+            response = requests.get(GOOGLE_BOOKS_API_URL, params=google_params, timeout=API_TIMEOUT)
+            response.raise_for_status()
+            data = response.json()
+            if data.get('totalItems', 0) > 0 and 'items' in data:
+                print(f"✅ Found {data['totalItems']} result(s) on Google Books using text.")
+                return data['items'], 'google'
+        except requests.exceptions.RequestException as e:
+            print(f"An error occurred during Text Google search: {e}. Attempting fallback...")
+
+    # ------------------ 3a. Fallback Search: Full Text (Open Library) ------------------
+    if raw_text and raw_text != "error":
+        print(f"\n--- 🌐 Searching Open Library (Fallback: Text) with query: '{raw_text[:50]}...' ---")
+        open_library_params = {"q": raw_text, "limit": 5}
+        try:
+            response = requests.get(OPEN_LIBRARY_SEARCH_URL, params=open_library_params, timeout=API_TIMEOUT)
+            response.raise_for_status()
+            data = response.json()
+            if data.get('numFound', 0) > 0 and 'docs' in data:
+                print(f"✅ Found {data['numFound']} result(s) on Open Library using text.")
+                return data['docs'], 'openlibrary'
+        except requests.exceptions.RequestException as e:
+            print(f"An error occurred during Open Library search: {e}.")
+
+    print("❌ No results found on any API.")
+    return [], None
+
+# --- Step 4: Dynamic Information Refinement (Unchanged) ---
+
+def refine_info_from_api(api_results: List[Dict[str, Any]], api_source: str) -> Dict[str, str]:
+    """
+    Processes the API results based on the source to extract structured book information.
+    """
+    refined_data = {}
+    if not api_results or not api_source:
+        return refined_data
+        
+    print(f"\n--- ✅ Refining Information from Best {api_source.title()} Match ---")
+    
+    best_match = api_results[0] 
+
+    if api_source == 'google':
+        info = best_match.get('volumeInfo', {})
+        authors = ", ".join(info.get('authors', []))
+        isbn_13 = next((id_['identifier'] for id_ in info.get('industryIdentifiers', []) if id_['type'] == 'ISBN_13'), None)
+        
+        refined_data = {
+            "title": info.get('title'),
+            "subtitle": info.get('subtitle'),
+            "author": authors,
+            "publisher": info.get('publisher'),
+            "publishedDate": info.get('publishedDate'),
+            "pages": info.get('pageCount'),
+            "isbn_13": isbn_13
+        }
+
+    elif api_source == 'openlibrary':
+        authors = ", ".join(best_match.get('author_name', []))
+        publishers = ", ". join(best_match.get('publisher', []))
+        isbn_13 = next((isbn for isbn in best_match.get('isbn', []) if len(isbn) == 13), None)
+
+        refined_data = {
+            "title": best_match.get('title'),
+            "author": authors,
+            "publisher": publishers,
+            "publishedDate": str(best_match.get('first_publish_year')),
+            "edition_count": best_match.get('edition_count'),
+            "isbn_13": isbn_13
+        }
+        
+    return {k: v for k, v in refined_data.items() if v and str(v).strip()}
+
+def extract_only_isbn(image_path):
+    """
+    Extract ONLY ISBN from image, ignoring all other text
     """
     try:
-        if not nlp:
-            print("⚠️ NLP model not available, using title-based subject")
-            return title[:100] if title else "General"
+        img = cv2.imread(image_path)
+        if img is None:
+            return ""
         
-        # Combine title and description for better context
-        text_to_analyze = title
-        if description:
-            text_to_analyze += ". " + description
+        # Preprocess for better number recognition
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         
-        print(f"🔍 Analyzing subject for: {text_to_analyze[:100]}...")
+        # Use OCR configuration optimized for numbers and ISBN patterns
+        pil_img = Image.fromarray(thresh)
         
-        # Process text with spaCy
-        doc = nlp(text_to_analyze)
+        # Try different configurations for ISBN extraction
+        configs = [
+            '--psm 6 -c tessedit_char_whitelist=0123456789Xx-',  # Only numbers, X, and hyphens
+            '--psm 4 -c tessedit_char_whitelist=0123456789Xx-',  # Single column
+            '--psm 11'  # Sparse text
+        ]
         
-        # Extract nouns and proper nouns (most likely to be subjects)
-        subjects = []
-        for token in doc:
-            if token.pos_ in ["NOUN", "PROPN"] and not token.is_stop:
-                # Filter out common words that aren't good subjects
-                if token.text.lower() not in ['handbook', 'guide', 'introduction', 'book', 'edition']:
-                    subjects.append(token.text)
-        
-        # Also look for noun phrases
-        noun_phrases = [chunk.text for chunk in doc.noun_chunks 
-                       if len(chunk.text.split()) <= 3]  # Keep phrases short
-        
-        # Combine and rank subjects
-        all_subjects = subjects + noun_phrases
-        
-        if all_subjects:
-            # Count frequency to find most relevant subject
-            from collections import Counter
-            subject_counts = Counter(all_subjects)
-            most_common_subject = subject_counts.most_common(1)[0][0]
+        for config in configs:
+            text = pytesseract.image_to_string(pil_img, config=config)
             
-            print(f"✅ NLP extracted subject: {most_common_subject}")
-            return most_common_subject
+            # Look for ISBN patterns only
+            isbn_matches = re.findall(r'ISBN[-:\s]*([\d\-Xx]{10,17})', text, re.IGNORECASE)
+            
+            for isbn_match in isbn_matches:
+                isbn_clean = re.sub(r'[^\dXx]', '', isbn_match.upper())
+                if len(isbn_clean) in [10, 13]:
+                    print(f"✅ Extracted ISBN: {isbn_clean}")
+                    return isbn_clean
         
-        # Fallback: use key words from title
-        print("⚠️ No specific subject found with NLP, using title keywords")
-        return title[:100]
+        # If ISBN pattern not found, look for 10/13 digit sequences
+        text = pytesseract.image_to_string(pil_img, config='--psm 6')
+        
+        # Find all number sequences that could be ISBNs
+        number_sequences = re.findall(r'\b(?:\d[\d\-]*\d)\b', text)
+        
+        for seq in number_sequences:
+            clean_seq = re.sub(r'[^\d]', '', seq)
+            if len(clean_seq) in [10, 13]:
+                print(f"✅ Found potential ISBN: {clean_seq}")
+                return clean_seq
+        
+        print("❌ No ISBN found in image")
+        return ""
         
     except Exception as e:
-        print(f"❌ NLP subject extraction error: {e}")
-        return title[:100] if title else "General"
+        print(f"Error extracting ISBN: {e}")
+        return ""
 
-def categorize_subject(subject_text):
+def extract_complete_book_info(image_paths):
     """
-    Categorize the subject into broader classification codes
+    Extract all required book information for database insertion
     """
-    subject_lower = subject_text.lower()
+    print("🚀 Extracting complete book information...")
     
-    # Computer Science & Programming
-    if any(keyword in subject_lower for keyword in ['python', 'programming', 'code', 'software', 'computer', 'algorithm', 'data structure']):
-        return "COM"
-    # Data Science & Analytics
-    elif any(keyword in subject_lower for keyword in ['data science', 'data analysis', 'machine learning', 'artificial intelligence', 'ai', 'ml', 'statistics']):
-        return "DAT"
-    # Mathematics
-    elif any(keyword in subject_lower for keyword in ['mathematics', 'math', 'calculus', 'algebra', 'geometry']):
-        return "MAT"
-    # Science
-    elif any(keyword in subject_lower for keyword in ['science', 'physics', 'chemistry', 'biology']):
-        return "SCI"
-    # Business
-    elif any(keyword in subject_lower for keyword in ['business', 'management', 'marketing', 'finance', 'economics']):
-        return "BUS"
-    # Literature
-    elif any(keyword in subject_lower for keyword in ['literature', 'fiction', 'novel', 'poetry', 'writing']):
-        return "LIT"
-    # History
-    elif any(keyword in subject_lower for keyword in ['history', 'historical', 'biography']):
-        return "HIS"
-    # General (default)
-    else:
-        return "GEN"
+    # Get OCR data and API info
+    ocr_data = extract_info_from_images(image_paths)
+    api_results, api_source = search_book_apis(ocr_data)
+    api_data = refine_info_from_api(api_results, api_source)
+    
+    # Extract additional details from OCR text
+    raw_text = ocr_data.get("raw_text_dump", "")
+    complete_data = extract_additional_details(raw_text, api_data)
+    
+    return complete_data
 
-# Database insertion function
-def insert_into_database(book_data):
+def extract_additional_details(raw_text, api_data):
+    """
+    Extract additional details like Indian ISBN, contributors, etc.
+    """
+    # Extract Indian ISBN if available
+    isbn_indian = extract_indian_isbn(raw_text)
+    
+    # Extract contributors/editors
+    contributors = extract_contributors(raw_text)
+    
+    # Extract edition information
+    edition = extract_edition_info(raw_text, api_data.get('edition_count'))
+    
+    # Extract publisher information (original vs reprint)
+    publisher_info = extract_publisher_info(raw_text, api_data.get('publisher'))
+    
+    # Build complete data structure matching your database schema
+    complete_data = {
+        "title": api_data.get('Full Title') or api_data.get('title', ''),
+        "author": api_data.get('author', ''),
+        "edition": edition,
+        "ISBN": {
+            "international": api_data.get('isbn_13') or api_data.get('ocr_isbn', ''),
+            "indian_reprint": isbn_indian
+        },
+        "publisher": {
+            "original": publisher_info.get('original', api_data.get('publisher', '')),
+            "reprint": publisher_info.get('reprint', '')
+        },
+        "published_date": api_data.get('publishedDate', ''),
+        "contributors": contributors
+    }
+    
+    print("📋 COMPLETE EXTRACTED DATA:")
+    print("=" * 50)
+    for key, value in complete_data.items():
+        if value:
+            print(f"   {key}: {value}")
+    print("=" * 50)
+    
+    return complete_data
+
+def extract_indian_isbn(text):
+    """
+    Extract Indian reprint ISBN specifically
+    """
+    # Look for Indian edition patterns
+    if 'india' in text.lower() or 'indian' in text.lower():
+        isbn_matches = re.findall(r'ISBN[-:\s]*([\d\-Xx]{10,17})', text, re.IGNORECASE)
+        for match in isbn_matches:
+            clean_isbn = re.sub(r'[^\dXx]', '', match.upper())
+            if len(clean_isbn) in [10, 13]:
+                return clean_isbn
+    return ""
+
+def extract_contributors(text):
+    """
+    Extract contributors like editors, etc.
+    """
+    contributors = []
+    lines = text.split('\n')
+    
+    for line in lines:
+        line_lower = line.lower()
+        # Look for editor information
+        if any(role in line_lower for role in ['editor:', 'edited by', 'development editor']):
+            # Extract name after the role
+            for role in ['editor:', 'edited by', 'development editor']:
+                if role in line_lower:
+                    name = line.split(role)[-1].strip()
+                    if name and len(name.split()) <= 4:
+                        contributors.append({
+                            "role": role.replace(':', '').strip(),
+                            "name": name.title()
+                        })
+                    break
+    
+    return contributors if contributors else []
+
+def extract_edition_info(text, api_edition_count):
+    """
+    Extract edition information
+    """
+    # Look for edition patterns
+    edition_patterns = [
+        r'(\d+(?:st|nd|rd|th)\s+[Ee]dition)',
+        r'([Ff]irst|[Ss]econd|[Tt]hird|[Ff]ourth|[Ff]ifth)\s+[Ee]dition',
+        r'([Nn]inth|[Tt]enth|[Ee]leventh|[Tt]welfth)\s+[Ee]dition'
+    ]
+    
+    for pattern in edition_patterns:
+        match = re.search(pattern, text)
+        if match:
+            return match.group(1).title()
+    
+    # Fallback to API edition count
+    if api_edition_count:
+        return f"{api_edition_count} Edition"
+    
+    return ""
+
+def extract_publisher_info(text, api_publisher):
+    """
+    Extract original vs reprint publisher information
+    """
+    publisher_info = {
+        "original": api_publisher or "",
+        "reprint": ""
+    }
+    
+    lines = text.split('\n')
+    
+    for line in lines:
+        line_lower = line.lower()
+        # Look for Indian reprint publisher
+        if 'india' in line_lower and 'pearson' in line_lower:
+            publisher_info["reprint"] = "Pearson India Education Services Pvt. Ltd"
+        elif 'pearson' in line_lower and not publisher_info["original"]:
+            publisher_info["original"] = "Pearson Education"
+    
+    return publisher_info
+
+# Database insertion functions matching your schema
+def insert_complete_book_data(data):
+    """
+    Insert complete book data into database using your schema
+    """
     try:
-        print("📦 Inserting book via Supabase REST API...")
-        
-        # Extract data
-        title = book_data.get('title', 'Unknown Title').strip()
-        authors = book_data.get('authors', [])
-        publisher = book_data.get('publisher', 'Unknown Publisher').strip()
-        description = book_data.get('description', '')
-        
-        if not title or title == 'Unknown Title':
-            return False, "No valid title available"
-        
-        # Ensure authors is a list
-        if isinstance(authors, str):
-            authors = [authors]
-        if not authors:
-            authors = ['Unknown Author']
+        print("📦 Inserting complete book data into database...")
         
         # Generate control number
         control_no = f"LBS-{datetime.now().strftime('%Y%m%d%H%M%S')}"
         
-        print(f"📚 Final book data:")
-        print(f"   Title: {title}")
-        print(f"   Authors: {authors}")
-        print(f"   Publisher: {publisher}")
-        
-        # 1. Insert or get publisher
-        print("1. Handling publisher...")
-        publisher_response = requests.post(
-            f"{SUPABASE_URL}/rest/v1/publishers",
-            headers=headers,
-            json={"name": publisher},
-            params={"on_conflict": "name"}
-        )
+        # 1. Insert or get publisher (original)
+        publisher_original = data.get("publisher", {}).get("original", "Unknown Publisher")
+        insert_publisher(publisher_original)
         
         # 2. Insert authors
-        print("2. Handling authors...")
-        author_ids = []
-        for author in authors:
-            if author and author != 'Unknown Author':
-                author_response = requests.post(
-                    f"{SUPABASE_URL}/rest/v1/authors",
-                    headers=headers,
-                    json={"name": author, "role": "Author"},
-                    params={"on_conflict": "name"}
-                )
-                if author_response.status_code in [200, 201]:
-                    author_data = author_response.json()
-                    if isinstance(author_data, list) and len(author_data) > 0:
-                        author_ids.append(author_data[0]['author_id'])
+        author_name = data.get("author", "Unknown Author")
+        author_ids = insert_author(author_name)
         
-        # 3. Insert subject USING NLP (NEW IMPROVEMENT)
-        print("3. Handling subject with NLP...")
-        subject_heading = extract_subject_with_nlp(title, description)
-        classification_code = categorize_subject(subject_heading)
+        # 3. Insert subject
+        subject_heading = data.get("title", "Unknown Title")[:100]
+        subject_id = insert_subject(subject_heading)
         
-        print(f"   Subject: {subject_heading}")
-        print(f"   Classification: {classification_code}")
+        # 4. Get publisher_id
+        publisher_id = get_publisher_id(publisher_original)
         
-        subject_response = requests.post(
+        # 5. Insert MARC record
+        record_id = insert_marc_record(control_no, publisher_id)
+        
+        if record_id:
+            # 6. Link authors to record
+            for author_id in author_ids:
+                insert_record_author(record_id, author_id)
+            
+            # 7. Link subject to record
+            if subject_id:
+                insert_record_subject(record_id, subject_id)
+            
+            # 8. Insert MARC fields
+            insert_marc_fields(record_id, data)
+            
+            print("✅ Book inserted successfully!")
+            return True, f"Book '{data.get('title', 'Unknown')}' successfully added with Control No: {control_no}"
+        
+        return False, "Failed to create MARC record"
+            
+    except Exception as e:
+        print(f"❌ Database insertion failed: {str(e)}")
+        return False, f"Database insertion failed: {str(e)}"
+
+def insert_publisher(name):
+    """Insert publisher if not exists"""
+    if not name or name == "Unknown Publisher":
+        return
+    
+    try:
+        response = requests.post(
+            f"{SUPABASE_URL}/rest/v1/publishers",
+            headers=headers,
+            json={"name": name},
+            params={"on_conflict": "name"}
+        )
+        print(f"✅ Publisher handled: {name}")
+    except Exception as e:
+        print(f"❌ Publisher insertion error: {e}")
+
+def insert_author(author_name):
+    """Insert author if not exists"""
+    author_ids = []
+    if author_name and author_name != "Unknown Author":
+        try:
+            response = requests.post(
+                f"{SUPABASE_URL}/rest/v1/authors",
+                headers=headers,
+                json={"name": author_name, "role": "Author"},
+                params={"on_conflict": "name"}
+            )
+            if response.status_code in [200, 201]:
+                author_data = response.json()
+                if isinstance(author_data, list) and len(author_data) > 0:
+                    author_ids.append(author_data[0]['author_id'])
+                    print(f"✅ Author handled: {author_name}")
+        except Exception as e:
+            print(f"❌ Author insertion error: {e}")
+    
+    return author_ids
+
+def insert_subject(subject_heading):
+    """Insert subject if not exists"""
+    try:
+        response = requests.post(
             f"{SUPABASE_URL}/rest/v1/subjects",
             headers=headers,
             json={
                 "subject_heading": subject_heading,
-                "classification_code": classification_code
+                "classification_code": "GEN"  # Default classification
             },
             params={"on_conflict": "subject_heading"}
         )
-        
-        # 4. Get publisher_id
-        print("4. Getting publisher ID...")
-        publishers_response = requests.get(
-            f"{SUPABASE_URL}/rest/v1/publishers?name=eq.{publisher}",
+        if response.status_code in [200, 201]:
+            subject_data = response.json()
+            if isinstance(subject_data, list) and len(subject_data) > 0:
+                return subject_data[0]['subject_id']
+    except Exception as e:
+        print(f"❌ Subject insertion error: {e}")
+    return None
+
+def get_publisher_id(publisher_name):
+    """Get publisher ID"""
+    try:
+        response = requests.get(
+            f"{SUPABASE_URL}/rest/v1/publishers?name=eq.{publisher_name}",
             headers=headers
         )
-        
-        publisher_id = 1  # Default fallback
-        if publishers_response.status_code == 200:
-            publishers_data = publishers_response.json()
+        if response.status_code == 200:
+            publishers_data = response.json()
             if publishers_data and len(publishers_data) > 0:
-                publisher_id = publishers_data[0]['publisher_id']
-        
-        # 5. Insert MARC record
-        print("5. Inserting MARC record...")
-        marc_response = requests.post(
+                return publishers_data[0]['publisher_id']
+    except Exception as e:
+        print(f"❌ Get publisher ID error: {e}")
+    return 1  # Default fallback
+
+def insert_marc_record(control_no, publisher_id):
+    """Insert MARC record"""
+    try:
+        response = requests.post(
             f"{SUPABASE_URL}/rest/v1/marc_records",
             headers=headers,
             json={
@@ -485,143 +567,106 @@ def insert_into_database(book_data):
                 "publisher_id": publisher_id
             }
         )
-        
-        if marc_response.status_code not in [200, 201]:
-            return False, f"Failed to create MARC record: {marc_response.text}"
-        
-        marc_data = marc_response.json()
-        if isinstance(marc_data, list) and len(marc_data) > 0:
-            record_id = marc_data[0]['record_id']
-            
-            # 6. Link authors to record
-            print("6. Linking authors...")
-            for author_id in author_ids:
-                requests.post(
-                    f"{SUPABASE_URL}/rest/v1/record_authors",
-                    headers=headers,
-                    json={
-                        "record_id": record_id,
-                        "author_id": author_id
-                    }
-                )
-            
-            # 7. Link subject to record
-            print("7. Linking subject...")
-            subjects_response = requests.get(
-                f"{SUPABASE_URL}/rest/v1/subjects?subject_heading=eq.{subject_heading}",
-                headers=headers
-            )
-            if subjects_response.status_code == 200:
-                subjects_data = subjects_response.json()
-                if subjects_data and len(subjects_data) > 0:
-                    subject_id = subjects_data[0]['subject_id']
-                    requests.post(
-                        f"{SUPABASE_URL}/rest/v1/record_subjects",
-                        headers=headers,
-                        json={
-                            "record_id": record_id,
-                            "subject_id": subject_id
-                        }
-                    )
-            
-            # 8. Insert MARC fields
-            print("8. Inserting MARC fields...")
-            # Title field (245)
-            requests.post(
-                f"{SUPABASE_URL}/rest/v1/marc_fields",
-                headers=headers,
-                json={
-                    "record_id": record_id,
-                    "tag": "245",
-                    "indicators": "00",
-                    "field_value": title
-                }
-            )
-            
-            # Add description field (520) if available
-            if description:
-                requests.post(
-                    f"{SUPABASE_URL}/rest/v1/marc_fields",
-                    headers=headers,
-                    json={
-                        "record_id": record_id,
-                        "tag": "520",
-                        "indicators": "00", 
-                        "field_value": description[:500]  # Limit length
-                    }
-                )
-            
-            print("✅ Book inserted successfully via REST API!")
-            return True, f"Book '{title}' successfully added with Control No: {control_no}"
-        
-        return False, "Failed to get record ID from response"
-            
+        if response.status_code in [200, 201]:
+            marc_data = response.json()
+            if isinstance(marc_data, list) and len(marc_data) > 0:
+                return marc_data[0]['record_id']
     except Exception as e:
-        print(f"❌ API call failed: {str(e)}")
-        return False, f"API call failed: {str(e)}"
+        print(f"❌ MARC record insertion error: {e}")
+    return None
 
-# Main processing function
-def process_two_images_and_save(image1_path, image2_path):
+def insert_record_author(record_id, author_id):
+    """Link record with author"""
     try:
-        print("🚀 Starting enhanced book processing...")
-        print("=" * 60)
-        
-        # STEP 1: Extract whatever we can from images
-        extracted_data = extract_all_possible_data(image1_path, image2_path)
-        
-        print("\n" + "=" * 60)
-        print("🌐 ATTEMPTING API LOOKUP WITH EXTRACTED DATA...")
-        
-        # STEP 2: Use API as primary source with multiple strategies
-        api_book_data = fetch_book_data_enhanced(extracted_data)
-        
-        # STEP 3: Combine API data with extracted data (API takes priority)
-        final_book_data = {}
-        
-        if api_book_data:
-            print("✅ Using API data as primary source")
-            final_book_data = api_book_data
-            
-            # Only use image data if API doesn't have it
-            if not final_book_data.get("isbn_10") and not final_book_data.get("isbn_13"):
-                if extracted_data["isbn"]:
-                    final_book_data["isbn_13"] = extracted_data["isbn"]
-            
-            # Update source to indicate combination
-            final_book_data["source"] = "api_primary_with_image_fallback"
-        else:
-            print("⚠️ API lookup failed, using image data as fallback")
-            final_book_data = {
-                "title": extracted_data["title"] or "Unknown Title",
-                "authors": extracted_data["authors"] or ["Unknown Author"],
-                "publisher": extracted_data["publisher"] or "Unknown Publisher",
-                "publishedDate": extracted_data["publication_date"] or "",
-                "isbn_13": extracted_data["isbn"] or "",
-                "source": "image_extraction_fallback"
+        requests.post(
+            f"{SUPABASE_URL}/rest/v1/record_authors",
+            headers=headers,
+            json={
+                "record_id": record_id,
+                "author_id": author_id
             }
+        )
+    except Exception as e:
+        print(f"❌ Record-author linking error: {e}")
+
+def insert_record_subject(record_id, subject_id):
+    """Link record with subject"""
+    try:
+        requests.post(
+            f"{SUPABASE_URL}/rest/v1/record_subjects",
+            headers=headers,
+            json={
+                "record_id": record_id,
+                "subject_id": subject_id
+            }
+        )
+    except Exception as e:
+        print(f"❌ Record-subject linking error: {e}")
+
+def insert_marc_fields(record_id, data):
+    """Insert all MARC fields"""
+    # Title field (245)
+    title = data.get("title", "")
+    if title:
+        insert_marc_field(record_id, "245", "00", title)
+    
+    # ISBN field (020) - International
+    isbn_int = data.get("ISBN", {}).get("international", "")
+    if isbn_int:
+        insert_marc_field(record_id, "020", "00", f"ISBN {isbn_int}")
+    
+    # ISBN field (020) - Indian
+    isbn_indian = data.get("ISBN", {}).get("indian_reprint", "")
+    if isbn_indian:
+        insert_marc_field(record_id, "020", "00", f"ISBN {isbn_indian} (Indian Reprint)")
+    
+    # Publication date (260)
+    published_date = data.get("published_date", "")
+    if published_date:
+        insert_marc_field(record_id, "260", "00", f"© {published_date}")
+    
+    # Edition (250)
+    edition = data.get("edition", "")
+    if edition:
+        insert_marc_field(record_id, "250", "00", edition)
+    
+    # Publisher (264)
+    publisher = data.get("publisher", {}).get("original", "")
+    if publisher:
+        insert_marc_field(record_id, "264", "00", publisher)
+
+def insert_marc_field(record_id, tag, indicators, field_value):
+    """Insert individual MARC field"""
+    try:
+        requests.post(
+            f"{SUPABASE_URL}/rest/v1/marc_fields",
+            headers=headers,
+            json={
+                "record_id": record_id,
+                "tag": tag,
+                "indicators": indicators,
+                "field_value": field_value
+            }
+        )
+    except Exception as e:
+        print(f"❌ MARC field insertion error: {e}")
+
+    
+def process_two_images_and_save(image1_path, image2_path):
+    """
+    Main function that processes images and saves complete data to database
+    """
+    try:
+        # Extract complete book information using BOTH images
+        image_paths = [image1_path, image2_path]
+        complete_data = extract_complete_book_info(image_paths)
         
-        print("\n" + "=" * 60)
-        print("🎯 FINAL COMBINED BOOK DATA:")
-        print(f"   Title: {final_book_data['title']}")
-        print(f"   Authors: {final_book_data['authors']}")
-        print(f"   Publisher: {final_book_data['publisher']}")
-        print(f"   Published Date: {final_book_data.get('publishedDate', '')}")
-        print(f"   ISBN: {final_book_data.get('isbn_13', final_book_data.get('isbn_10', ''))}")
-        print(f"   Source: {final_book_data.get('source', 'unknown')}")
+        # Insert into database using new insertion method
+        success, message = insert_complete_book_data(complete_data)
         
-        # Validate minimum data
-        if final_book_data["title"] == "Unknown Title":
-            return False, "Could not extract sufficient book information from images or API.", final_book_data
-        
-        # STEP 4: Insert into database
-        print("\n💾 SAVING TO DATABASE...")
-        success, message = insert_into_database(final_book_data)
-        
-        return success, message, final_book_data
+        return success, message, complete_data
         
     except Exception as e:
         error_msg = f"Error processing images: {str(e)}"
         print(f"❌ {error_msg}")
-        import traceback
-        traceback.print_exc()
         return False, error_msg, None
