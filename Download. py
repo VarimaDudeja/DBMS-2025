@@ -1,0 +1,104 @@
+from flask import Flask, request, send_file, jsonify
+import pandas as pd
+import io
+import datetime
+import requests
+
+app = Flask(__name__)
+
+# --- Replace with your actual Supabase credentials ---
+SUPABASE_URL = "https://ryxijguahtthyxxfpkek.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+headers = {
+    "apikey": SUPABASE_KEY,
+    "Authorization": f"Bearer {SUPABASE_KEY}"
+}
+
+@app.route('/api/download-excel', methods=['GET'])
+def download_excel():
+    """
+    Fetch all books (or filtered ones) from Supabase and download as Excel.
+    Filters supported via query params:
+      ?title=python
+      ?author=john
+      ?subject=ai
+    """
+    try:
+        # Optional filters from query params
+        title_filter = request.args.get('title', '').strip()
+        author_filter = request.args.get('author', '').strip()
+        subject_filter = request.args.get('subject', '').strip()
+
+        # Step 1: Get all book titles (tag 245)
+        books_url = f"{SUPABASE_URL}/rest/v1/marc_fields?tag=eq.245&select=field_value,record_id,marc_records(control_no,created_at,publishers(name))"
+        if title_filter:
+            books_url += f"&field_value=ilike.%25{title_filter}%25"
+
+        books_response = requests.get(books_url, headers=headers)
+        books_response.raise_for_status()
+        books_data = books_response.json()
+
+        records = []
+
+        for book in books_data:
+            title = book['field_value']
+            record_id = book['record_id']
+            record_info = book.get('marc_records', {})
+            control_no = record_info.get('control_no', '')
+            created_at = record_info.get('created_at', '')
+            publisher = record_info.get('publishers', {}).get('name', '')
+
+            # Step 2: Fetch authors (tag 100)
+            authors_url = f"{SUPABASE_URL}/rest/v1/marc_fields?record_id=eq.{record_id}&tag=eq.100&select=field_value"
+            if author_filter:
+                authors_url += f"&field_value=ilike.%25{author_filter}%25"
+            authors_response = requests.get(authors_url, headers=headers)
+            authors = [a['field_value'] for a in authors_response.json()]
+
+            # Step 3: Fetch subjects (tag 650)
+            subjects_url = f"{SUPABASE_URL}/rest/v1/marc_fields?record_id=eq.{record_id}&tag=eq.650&select=field_value"
+            if subject_filter:
+                subjects_url += f"&field_value=ilike.%25{subject_filter}%25"
+            subjects_response = requests.get(subjects_url, headers=headers)
+            subjects = [s['field_value'] for s in subjects_response.json()]
+
+            # Skip record if filters didn't match
+            if author_filter and not authors:
+                continue
+            if subject_filter and not subjects:
+                continue
+
+            records.append({
+                "Title": title,
+                "Authors": ", ".join(authors),
+                "Publisher": publisher,
+                "Subjects": ", ".join(subjects),
+                "Control_No": control_no,
+                "Created_At": created_at
+            })
+
+        if not records:
+            return jsonify({"message": "No matching records found."}), 404
+
+        # Step 4: Convert to Excel
+        df = pd.DataFrame(records)
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            df.to_excel(writer, index=False, sheet_name='Books')
+
+        output.seek(0)
+        filename = f"libraScan_books_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+
+        return send_file(
+            output,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+if __name__ == '__main__':
+    app.run(debug=True)
