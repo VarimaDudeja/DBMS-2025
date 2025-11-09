@@ -14,7 +14,7 @@
         
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f4f7f9;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4edf5 100%);
         }
 
         /* Splash Screen Animation */
@@ -43,18 +43,187 @@
             display: none !important;
         }
 
-        /* CSS for Collapsed Sidebar State (Desktop) */
-        .sidebar-collapsed {
-            width: 5rem; /* w-20 in Tailwind */
+        /* YouTube-style sidebar */
+        #sidebar {
+            transition: width 0.3s ease;
+            overflow: hidden;
+            background-color: #111827;
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 40;
+            display: flex;
         }
-        .sidebar-expanded {
-            width: 16rem; /* w-64 in Tailwind */
+
+        #sidebar.collapsed {
+            width: 60px; /* Same as toggle strip width */
         }
-        .main-content-shifted {
-            margin-left: 5rem; /* Match collapsed width w-20 */
+
+        #sidebar.expanded {
+            width: 350px; /* Sidebar content + toggle strip */
         }
-        .main-content-expanded {
-            margin-left: 16rem; /* Match expanded width w-64 */
+
+        /* Toggle strip - fixed width, always visible */
+        #toggle-strip {
+            width: 60px; /* Fixed width */
+            background-color: #111827;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 16px;
+            flex-shrink: 0;
+            border-left: 1px solid #374151;
+            position: relative;
+            z-index: 10;
+        }
+
+        /* Sidebar content */
+        #sidebar-content {
+            flex: 1;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            overflow-y: auto;
+            width: 240px; /* Fixed width for content */
+        }
+
+        #sidebar.collapsed #sidebar-content {
+            opacity: 0;
+            transform: translateX(-100%);
+            pointer-events: none;
+        }
+
+        #sidebar.expanded #sidebar-content {
+            opacity: 1;
+            transform: translateX(0);
+            pointer-events: all;
+        }
+
+        /* Main content adjustment */
+        #main-content {
+            transition: margin-left 0.3s ease;
+            min-height: 100vh;
+        }
+
+        #main-content.sidebar-collapsed {
+            margin-left: 60px; /* Same as toggle strip width */
+        }
+
+        #main-content.sidebar-expanded {
+            margin-left: 300px; /* Sidebar content + toggle strip */
+        }
+
+        /* Sidebar item styles */
+        .sidebar-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 24px;
+            color: white;
+            text-decoration: none;
+            border-radius: 10px;
+            margin: 0 12px;
+            transition: background-color 0.2s;
+        }
+
+        .sidebar-item:hover {
+            background-color: #374151;
+        }
+
+        .sidebar-item.active {
+            background-color: #374151;
+        }
+
+        .sidebar-item .icon {
+            width: 24px;
+            height: 24px;
+            flex-shrink: 0;
+        }
+
+        .sidebar-item .text {
+            margin-left: 24px;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+        /* Glassmorphism effect */
+        .glass {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        /* Custom gradient backgrounds */
+        .gradient-blue {
+            background: linear-gradient(135deg, #4F8BF9 0%, #3B82F6 100%);
+        }
+        .gradient-purple {
+            background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
+        }
+        .gradient-green {
+            background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+        }
+
+        /* Card hover effects */
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+
+        /* Upload area styling */
+        .upload-area {
+            transition: all 0.3s ease;
+            border: 2px dashed #d1d5db;
+        }
+        .upload-area:hover, .upload-area.dragover {
+            border-color: #4F8BF9;
+            background-color: rgba(79, 139, 249, 0.05);
+        }
+        .upload-area-cover:hover, .upload-area-cover.dragover {
+            border-color: #8B5CF6;
+            background-color: rgba(139, 92, 246, 0.05);
+        }
+        .upload-area-isbn:hover, .upload-area-isbn.dragover {
+            border-color: #10B981;
+            background-color: rgba(16, 185, 129, 0.05);
+        }
+
+        /* Custom button styling */
+        .btn-primary {
+            background: linear-gradient(135deg, #4F8BF9 0%, #3B82F6 100%);
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.3);
+        }
+
+        /* Stats card styling */
+        .stats-card {
+            position: relative;
+            overflow: hidden;
+        }
+        .stats-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 100px;
+            height: 100px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            transform: translate(30px, -30px);
+        }
+
+        /* Search result styling */
+        .search-result {
+            transition: all 0.2s ease;
+        }
+        .search-result:hover {
+            transform: translateX(5px);
+            border-left-color: #4F8BF9;
         }
     </style>
 </head>
@@ -69,7 +238,7 @@
         <div class="absolute inset-0 bg-black/60"></div>
 
         <!-- Content Card (Relative to be on top of the overlay) -->
-        <div class="relative flex flex-col items-center justify-center p-8 rounded-xl shadow-2xl bg-white/10 backdrop-blur-sm text-white border border-white/20">
+        <div class="relative flex flex-col items-center justify-center p-8 rounded-2xl shadow-2xl glass text-white">
             <img id="logo-img" src="Gemini_Generated_Image_liigqxliigqxliig.png" alt="LibraScan Logo" class="w-60 mb-6 animate-pulse">
             <h1 class="text-3xl font-extrabold text-blue-400 mb-2">LibraScan</h1>
             <p class="text-lg text-gray-200">Initializing the Library System...</p>
@@ -80,146 +249,209 @@
     <div id="app-container" class="flex min-h-screen pt-1 transition-opacity duration-500 opacity-0 page-hidden">
         
         <!-- 2.1 SIDEBAR -->
-        <aside id="sidebar" class="fixed h-full bg-gray-900 text-white p-2 shadow-xl transition-all duration-300 sidebar-collapsed md:sidebar-collapsed z-50">
-            <div class="flex flex-col h-full overflow-hidden">
-                
-                <!-- Toggle Button (Always visible on desktop) -->
-                <button id="sidebar-toggle-desktop" class="hidden md:block absolute top-4 -right-3 p-1 rounded-full bg-gray-800 text-white shadow-lg z-50 transition-transform duration-300">
-                    <i id="toggle-icon" data-lucide="chevron-right" class="w-5 h-5 transition-transform duration-300"></i>
-                </button>
-
-                <!-- Logo/Title -->
-                <div class="mb-4 mt-2 px-3 border-b border-gray-700 pb-3 flex items-center justify-center">
-                    <div id="logo-expanded" class="hidden flex-col items-start w-full">
-                        <h2 class="text-2xl font-bold text-blue-400">LibraScan</h2>
-                        <p class="text-sm text-gray-400">Management Suite</p>
+        <aside id="sidebar" class="expanded">
+            <!-- Sidebar Content -->
+            <div id="sidebar-content" class="flex flex-col h-full py-4">
+                <!-- Logo Section -->
+                <div class="px-4 py-2 mb-2">
+                    <div class="flex items-center">
+                        <i data-lucide="book-open-check" class="w-8 h-8 text-blue-400"></i>
+                        <span class="text-white font-bold text-xl ml-3">LibraScan</span>
                     </div>
-                    <i id="logo-collapsed" data-lucide="book-open-check" class="w-8 h-8 text-blue-400"></i>
                 </div>
 
-                <!-- Navigation -->
-                <nav class="space-y-2 flex-grow px-1">
-                    <button onclick="navigateTo('dashboard')" id="nav-dashboard"
-                        class="nav-item w-full flex items-center p-3 rounded-lg text-gray-200 hover:bg-gray-700 transition-colors bg-gray-700 justify-center md:justify-start group">
-                        <i data-lucide="layout-dashboard" class="w-5 h-5 mr-0 md:mr-3"></i> 
-                        <span class="hidden md:inline-block expanded-text whitespace-nowrap">Dashboard</span>
-                    </button>
-                    <!-- Add Book and Search Book removed as requested -->
+                <!-- Navigation Items -->
+                <nav class="flex-1 overflow-y-auto">
+                    <div class="space-y-1">
+                        <a href="#" class="sidebar-item active" onclick="openDashboard()">
+                            <i data-lucide="layout-dashboard" class="icon"></i>
+                            <span class="text">Dashboard</span>
+                        <a href="#" class="sidebar-item" onclick="toggleEditOptions()">
+                            <i data-lucide="edit-3" class="icon"></i>
+                            <span class="text">Edit Data</span>
+                        </a>
+                        
+                        <!-- Edit Options Dropdown -->
+                        <div id="edit-options" class="ml-10 mt-1 space-y-1 hidden">
+                            <a href="#" class="sidebar-item text-sm" onclick="openEditBook()">
+                                <i data-lucide="edit" class="icon"></i>
+                                <span class="text">Edit Book Info</span>
+                            </a>
+                            <a href="#" class="sidebar-item text-sm" onclick="openDeleteBooks()">
+                                <i data-lucide="trash-2" class="icon"></i>
+                                <span class="text">Delete Books</span>
+                            </a>
+                        </div>
+                    </div>
                 </nav>
 
                 <!-- Utility Menu (Report Download) -->
-                <div class="mt-auto pt-4 border-t border-gray-700 px-1">
-                    <h3 class="text-xs font-semibold text-gray-400 uppercase mb-3 px-2 hidden expanded-text">Utility</h3>
+                <div class="px-4 py-2 border-t border-gray-700">
                     <button onclick="downloadReport()"
-                        class="nav-item w-full flex items-center justify-center py-3 px-1 md:py-2 md:px-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-md group">
-                        <i data-lucide="download" class="w-5 h-5 mr-0 md:mr-2"></i> 
-                        <span class="hidden md:inline-block expanded-text whitespace-nowrap">Download Records</span>
+                        class="sidebar-item w-full gradient-blue text-white font-semibold rounded-lg hover:shadow-lg transition-all duration-300 shadow-md">
+                        <i data-lucide="download" class="icon"></i>
+                        <span class="text">Download Records</span>
                     </button>
                 </div>
             </div>
+
+            <!-- Permanent Toggle Strip on the Right Side - Fixed Width -->
+            <div id="toggle-strip">
+                <button id="sidebar-toggle" class="p-2 rounded-full bg-gray-800 text-white shadow-lg hover:bg-gray-700 transition-colors">
+                    <i data-lucide="menu" class="w-5 h-5"></i>
+                </button>
+            </div>
         </aside>
 
-        <!-- Sidebar Toggle for Mobile (Standard behavior remains) -->
-        <button id="sidebar-toggle-mobile" class="fixed top-4 left-4 p-2 bg-gray-800 text-white rounded-md md:hidden z-50 shadow-lg">
-            <i data-lucide="menu" class="w-6 h-6"></i>
-        </button>
-
         <!-- 2.2 MAIN CONTENT AREA -->
-        <main id="main-content" class="flex-grow p-6 transition-all duration-300 main-content-shifted">
-            
-            <!-- Dynamic Header/Back Button Area -->
-            <div class="flex items-center mb-6 border-b pb-4">
-                <!-- Back Button (Initially hidden) -->
-                <button id="back-button" onclick="goBackToDashboard()" 
-                    class="hidden items-center text-gray-600 hover:text-blue-600 transition-colors mr-4 focus:outline-none">
-                    <i data-lucide="arrow-left" class="w-6 h-6"></i>
-                </button>
-                <h1 id="page-title" class="text-4xl font-extrabold text-gray-800">Welcome Back to LibraScan!</h1>
-            </div>
-
-            <!-- DYNAMIC PAGE CONTENT -->
-            <div id="page-content" class="space-y-8">
-                <!-- 2.2.1 DASHBOARD VIEW -->
-                <div id="dashboard-view" class="page-view">
-                    
-                    <!-- Quick Actions - Updated to use navigation -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="bg-white p-8 rounded-xl shadow-lg hover:shadow-2xl transition-shadow duration-300 border-l-4 border-blue-500 cursor-pointer" 
-                             onclick="navigateTo('add_book')">
-                            <h2 class="text-2xl font-bold text-gray-700 mb-2 flex items-center"><i data-lucide="book-plus" class="w-6 h-6 mr-3 text-blue-500"></i> Add New Book</h2>
-                            <p class="text-gray-500">Upload book images (cover and ISBN page) for automated record creation.</p>
-                        </div>
-                        <div class="bg-white p-8 rounded-xl shadow-lg hover:shadow-2xl transition-shadow duration-300 border-l-4 border-green-500 cursor-pointer"
-                             onclick="navigateTo('search_book')">
-                            <h2 class="text-2xl font-bold text-gray-700 mb-2 flex items-center"><i data-lucide="search" class="w-6 h-6 mr-3 text-green-500"></i> Search Library</h2>
-                            <p class="text-gray-500">Quickly find records by title, author, ISBN, or publisher.</p>
-                        </div>
-                    </div>
-
-                    <!-- System Overview -->
-                    <div class="mt-8">
-                        <h2 class="text-3xl font-bold text-gray-700 mb-4">System Overview</h2>
-                        
-                        <!-- Stats Cards -->
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
-                            <div class="bg-white p-6 rounded-xl shadow-md border-b-4 border-yellow-500">
-                                <p class="text-sm text-gray-500">Total Books</p>
-                                <p id="total-books" class="text-4xl font-extrabold text-gray-900 mt-1">4,208</p>
-                            </div>
-                            <div class="bg-white p-6 rounded-xl shadow-md border-b-4 border-red-500">
-                                <p class="text-sm text-gray-500">Records Added Today</p>
-                                <p id="today-records" class="text-4xl font-extrabold text-gray-900 mt-1">17</p>
-                            </div>
-                        </div>
-                    </div>
+        <main id="main-content" class="sidebar-expanded p-6">
+            <div class="max-w-7xl mx-auto">
+                <!-- Dynamic Header/Back Button Area -->
+                <div class="flex items-center mb-6 border-b pb-4">
+                    <!-- Back Button (Initially hidden) -->
+                    <button id="back-button" onclick="goBackToDashboard()" 
+                        class="hidden items-center text-gray-600 hover:text-blue-600 transition-colors mr-4 focus:outline-none">
+                        <i data-lucide="arrow-left" class="w-6 h-6"></i>
+                    </button>
+                    <h1 id="page-title" class="text-4xl font-extrabold text-gray-800">Welcome Back to LibraScan!</h1>
                 </div>
 
-                <!-- 2.2.2 ADD BOOK VIEW -->
-                <div id="add_book-view" class="page-view page-hidden">
-                    <p class="text-gray-500 mb-8">Upload images for automated data extraction.</p>
-
-                    <div class="bg-white p-8 rounded-xl shadow-lg space-y-6">
+                <!-- DYNAMIC PAGE CONTENT -->
+                <div id="page-content" class="space-y-8">
+                    <!-- 2.2.1 DASHBOARD VIEW -->
+                    <div id="dashboard-view" class="page-view">
+                        
+                        <!-- Quick Actions -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <!-- File Uploader 1 -->
-                            <div class="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 transition-colors">
-                                <label class="block text-lg font-medium text-gray-700 mb-2">Image 1: Book Cover</label>
-                                <input type="file" id="image-1-upload" accept="image/*" class="w-full text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                            <div class="glass p-8 rounded-2xl shadow-lg card-hover cursor-pointer" 
+                                 onclick="navigateTo('add_book')">
+                                <div class="flex items-center mb-4">
+                                    <div class="gradient-purple p-3 rounded-xl mr-4">
+                                        <i data-lucide="book-plus" class="w-8 h-8 text-white"></i>
+                                    </div>
+                                    <h2 class="text-2xl font-bold text-gray-700">Add New Book</h2>
+                                </div>
+                                <p class="text-gray-500">Upload book images (cover and ISBN page) for automated record creation.</p>
                             </div>
-                            <!-- File Uploader 2 -->
-                            <div class="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 transition-colors">
-                                <label class="block text-lg font-medium text-gray-700 mb-2">Image 2: Title/ISBN Page</label>
-                                <input type="file" id="image-2-upload" accept="image/*" class="w-full text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
+                            <div class="glass p-8 rounded-2xl shadow-lg card-hover cursor-pointer"
+                                 onclick="navigateTo('search_book')">
+                                <div class="flex items-center mb-4">
+                                    <div class="gradient-green p-3 rounded-xl mr-4">
+                                        <i data-lucide="search" class="w-8 h-8 text-white"></i>
+                                    </div>
+                                    <h2 class="text-2xl font-bold text-gray-700">Search Library</h2>
+                                </div>
+                                <p class="text-gray-500">Quickly find records by title, author, ISBN, or publisher.</p>
                             </div>
                         </div>
 
-                        <button onclick="processUpload()" id="process-btn"
-                            class="w-full py-3 px-6 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 transition-transform duration-200 transform hover:scale-[1.01] shadow-lg">
-                            <i data-lucide="zap" class="w-5 h-5 inline mr-2"></i> Process Images and Save Record
-                        </button>
-                        
-                        <div id="upload-status" class="text-center p-3 rounded-lg text-sm text-gray-600 hidden"></div>
+                        <!-- System Overview -->
+                        <div class="mt-8">
+                            <h2 class="text-3xl font-bold text-gray-700 mb-4">System Overview</h2>
+                            
+                            <!-- Stats Cards -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
+                                <div class="glass p-6 rounded-2xl shadow-md stats-card border-l-4 border-yellow-500">
+                                    <div class="flex items-center">
+                                        <div class="bg-yellow-100 p-3 rounded-lg mr-4">
+                                            <i data-lucide="book-open" class="w-8 h-8 text-yellow-600"></i>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm text-gray-500">Total Books</p>
+                                            <p id="total-books" class="text-4xl font-extrabold text-gray-900 mt-1">4,208</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="glass p-6 rounded-2xl shadow-md stats-card border-l-4 border-red-500">
+                                    <div class="flex items-center">
+                                        <div class="bg-red-100 p-3 rounded-lg mr-4">
+                                            <i data-lucide="calendar" class="w-8 h-8 text-red-600"></i>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm text-gray-500">Records Added Today</p>
+                                            <p id="today-records" class="text-4xl font-extrabold text-gray-900 mt-1">17</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                </div>
-
-                <!-- 2.2.3 SEARCH BOOK VIEW -->
-                <div id="search_book-view" class="page-view page-hidden">
-                    <p class="text-gray-500 mb-8">Find books quickly by matching keywords.</p>
                     
-                    <div class="bg-white p-8 rounded-xl shadow-lg space-y-6">
-                        <div class="flex space-x-3">
+
+                    <!-- 2.2.2 ADD BOOK VIEW -->
+                    <div id="add_book-view" class="page-view page-hidden">
+                        <p class="text-gray-500 mb-8">Upload images for automated data extraction.</p>
+
+                        <div class="glass p-8 rounded-2xl shadow-lg space-y-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <!-- File Uploader 1 -->
+                                <div class="upload-area upload-area-cover p-6 rounded-xl transition-all duration-300">
+                                    <div class="flex items-center mb-4">
+                                        <div class="gradient-purple p-2 rounded-lg mr-3">
+                                            <i data-lucide="image" class="w-6 h-6 text-white"></i>
+                                        </div>
+                                        <label class="block text-lg font-semibold text-gray-700">Book Cover</label>
+                                    </div>
+                                    
+                                    <div class="bg-purple-50 p-4 rounded-lg mb-4">
+                                        <p class="text-sm text-purple-700 flex items-start">
+                                            <i data-lucide="info" class="w-4 h-4 mr-2 mt-0.5 flex-shrink-0"></i>
+                                            <span>Upload the cover page or the first page of the book having the title. Avoid uploading the cover page if it has many figures that may interfere with text recognition.</span>
+                                        </p>
+                                    </div>
+                                    
+                                    <input type="file" id="image-1-upload" accept="image/*" class="w-full text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100">
+                                </div>
+                                
+                                <!-- File Uploader 2 -->
+                                <div class="upload-area upload-area-isbn p-6 rounded-xl transition-all duration-300">
+                                    <div class="flex items-center mb-4">
+                                        <div class="gradient-green p-2 rounded-lg mr-3">
+                                            <i data-lucide="barcode" class="w-6 h-6 text-white"></i>
+                                        </div>
+                                        <label class="block text-lg font-semibold text-gray-700">ISBN Page</label>
+                                    </div>
+                                    
+                                    <div class="bg-green-50 p-4 rounded-lg mb-4">
+                                        <p class="text-sm text-green-700 flex items-start">
+                                            <i data-lucide="info" class="w-4 h-4 mr-2 mt-0.5 flex-shrink-0"></i>
+                                            <span>Upload the page containing the ISBN barcode and publication details. This is typically the copyright page found on the back of the title page.</span>
+                                        </p>
+                                    </div>
+                                    
+                                    <input type="file" id="image-2-upload" accept="image/*" class="w-full text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
+                                </div>
+                            </div>
+
+                            <button onclick="processUpload()" id="process-btn"
+                                class="w-full py-4 px-6 btn-primary text-white font-bold rounded-xl transition-all duration-300 shadow-lg">
+                                <i data-lucide="zap" class="w-5 h-5 inline mr-2"></i> Process Images and Save Record
+                            </button>
+                            
+                            <div id="upload-status" class="text-center p-4 rounded-xl text-sm hidden"></div>
+                        </div>
+                    </div>
+
+                    <!-- 2.2.3 SEARCH BOOK VIEW -->
+                    <div id="search_book-view" class="page-view page-hidden">
+                        <p class="text-gray-500 mb-8">Find books quickly by matching keywords.</p>
+                        
+                        <div class="flex space-x-3 justify-center">
                             <input type="text" id="search-input" placeholder="Search using Title, Author, Publisher, or ISBN..."
-                                class="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition-colors shadow-sm">
+                                class="w-[600px] max-w-full p-4 border border-gray-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 transition-colors shadow-sm">
                             <button onclick="performSearch()"
-                                class="py-3 px-6 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-md">
+                                class="py-4 px-6 gradient-blue text-white font-semibold rounded-xl hover:shadow-lg transition-all duration-300 shadow-md">
                                 <i data-lucide="search" class="w-5 h-5 inline"></i>
                             </button>
                         </div>
 
-                        <div id="search-results-area" class="mt-6">
-                            <h3 class="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">Results:</h3>
-                            <div id="results-table" class="space-y-3">
-                                <p class="text-gray-500 italic">Enter a query to see results...</p>
-                                <!-- Mock results will be inserted here -->
+
+                            <div id="search-results-area" class="mt-6">
+                                <h3 class="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">Results:</h3>
+                                <div id="results-table" class="space-y-3">
+                                    <p class="text-gray-500 italic">Enter a query to see results...</p>
+                                    <!-- Mock results will be inserted here -->
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -227,13 +459,43 @@
             </div>
         </main>
     </div>
-   
+   <!-- Book Exists Confirmation Modal -->
+    <div id="book-exists-modal" class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 glass">
+            <div class="flex items-center mb-4">
+                <div class="bg-yellow-100 p-3 rounded-lg mr-4">
+                    <i data-lucide="alert-triangle" class="w-8 h-8 text-yellow-600"></i>
+                </div>
+                <h3 class="text-xl font-bold text-gray-800">Book Already Exists</h3>
+            </div>
+            
+            <div id="book-exists-details" class="mb-6 p-4 bg-gray-50 rounded-lg">
+                <p class="text-gray-600 mb-2" id="existing-book-title"></p>
+                <p class="text-sm text-gray-500" id="existing-book-authors"></p>
+                <p class="text-sm text-gray-500" id="existing-book-count"></p>
+            </div>
+            
+            <p class="text-gray-700 mb-6">This book already exists in the records. Do you want to increase the count?</p>
+            
+            <div class="flex space-x-4">
+                <button id="confirm-increment" 
+                    class="flex-1 py-3 px-4 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors shadow-md">
+                    <i data-lucide="plus" class="w-4 h-4 inline mr-2"></i> Yes, Increase Count
+                </button>
+                <button id="cancel-increment" 
+                    class="flex-1 py-3 px-4 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors shadow-md">
+                    <i data-lucide="x" class="w-4 h-4 inline mr-2"></i> No, Cancel
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- JavaScript for Navigation and Interaction -->
     <script>
         const API_BASE = 'http://localhost:5000/api';
         let currentPage = 'dashboard';
-        let sidebarExpanded = false;
+        let sidebarExpanded = true;
+        let pendingBookData = null;
         const pageTitles = {
             'dashboard': 'Welcome Back to LibraScan!',
             'add_book': 'Add New Book Record',
@@ -253,85 +515,71 @@
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             const mainContent = document.getElementById('main-content');
-            const toggleIcon = document.getElementById('toggle-icon');
-            const expandedTexts = document.querySelectorAll('.expanded-text');
+            const toggleButton = document.getElementById('sidebar-toggle');
 
             sidebarExpanded = !sidebarExpanded;
 
             if (sidebarExpanded) {
                 // Expand
-                sidebar.classList.remove('sidebar-collapsed');
-                sidebar.classList.add('sidebar-expanded');
-                mainContent.classList.remove('main-content-shifted');
-                mainContent.classList.add('main-content-expanded');
-                toggleIcon.style.transform = 'rotate(180deg)';
-                document.getElementById('logo-collapsed').classList.add('hidden');
-                document.getElementById('logo-expanded').classList.remove('hidden');
-                expandedTexts.forEach(el => el.classList.remove('hidden'));
-
+                sidebar.classList.remove('collapsed');
+                sidebar.classList.add('expanded');
+                mainContent.classList.remove('sidebar-collapsed');
+                mainContent.classList.add('sidebar-expanded');
+                
+                // Update toggle button icon
+                toggleButton.innerHTML = '<i data-lucide="chevron-left" class="w-5 h-5 text-white"></i>';
             } else {
                 // Collapse
-                sidebar.classList.remove('sidebar-expanded');
-                sidebar.classList.add('sidebar-collapsed');
-                mainContent.classList.remove('main-content-expanded');
-                mainContent.classList.add('main-content-shifted');
-                toggleIcon.style.transform = 'rotate(0deg)';
-                document.getElementById('logo-expanded').classList.add('hidden');
-                document.getElementById('logo-collapsed').classList.remove('hidden');
-                expandedTexts.forEach(el => el.classList.add('hidden'));
+                sidebar.classList.remove('expanded');
+                sidebar.classList.add('collapsed');
+                mainContent.classList.remove('sidebar-expanded');
+                mainContent.classList.add('sidebar-collapsed');
+                
+                // Update toggle button icon
+                toggleButton.innerHTML = '<i data-lucide="chevron-right" class="w-5 h-5 text-white"></i>';
             }
-            // Re-center dashboard button icon when collapsed/expanded
-            const navDashboard = document.getElementById('nav-dashboard');
-            if (sidebarExpanded) {
-                 navDashboard.classList.remove('justify-center');
-                 navDashboard.classList.add('justify-start');
-            } else {
-                 navDashboard.classList.add('justify-center');
-                 navDashboard.classList.remove('justify-start');
-            }
+            
+            // Re-initialize icons after DOM changes
+            initIcons();
         }
 
         // --- 2. Navigation Logic ---
         function navigateTo(pageId) {
-    currentPage = pageId;
-    const views = document.querySelectorAll('.page-view');
-    const navItems = document.querySelectorAll('.nav-item');
-    const backButton = document.getElementById('back-button');
-    const pageTitleEl = document.getElementById('page-title');
+            currentPage = pageId;
+            const views = document.querySelectorAll('.page-view');
+            const backButton = document.getElementById('back-button');
+            const pageTitleEl = document.getElementById('page-title');
 
-    views.forEach(view => {
-        view.classList.add('page-hidden');
-    });
-    
-    navItems.forEach(item => {
-        item.classList.remove('bg-gray-700');
-    });
+            views.forEach(view => {
+                view.classList.add('page-hidden');
+            });
 
-    // Update page content
-    document.getElementById(`${pageId}-view`).classList.remove('page-hidden');
-    pageTitleEl.textContent = pageTitles[pageId] || '';
+            // Update page content
+            document.getElementById(`${pageId}-view`).classList.remove('page-hidden');
+            pageTitleEl.textContent = pageTitles[pageId] || '';
 
-    // Refresh stats when navigating to dashboard
-    if (pageId === 'dashboard') {
-        document.getElementById(`nav-${pageId}`).classList.add('bg-gray-700');
-        backButton.classList.add('hidden');
-        backButton.classList.remove('flex');
-        updateDashboardStats(); // ← ADD THIS LINE
-    } else {
-        backButton.classList.remove('hidden');
-        backButton.classList.add('flex');
-    }
-    
-    // Close sidebar on mobile
-    if (window.innerWidth < 768) {
-        document.getElementById('sidebar').classList.add('-translate-x-full');
-    }
-    
-    initIcons();
-}
+            // Refresh stats when navigating to dashboard
+            if (pageId === 'dashboard') {
+                backButton.classList.add('hidden');
+                backButton.classList.remove('flex');
+                updateDashboardStats();
+            } else {
+                backButton.classList.remove('hidden');
+                backButton.classList.add('flex');
+            }
+            
+            initIcons();
+        }
         
         // --- 3. Back to Dashboard Logic ---
         function goBackToDashboard() {
+            // If we're in edit mode, close the edit options dropdown
+            const editOptions = document.getElementById('edit-options');
+            if (editOptions) {
+                editOptions.classList.add('hidden');
+            }
+            
+            // Navigate to dashboard
             navigateTo('dashboard');
         }
         
@@ -350,115 +598,216 @@
             }, 500);
         }
 
-        // --- 5. Sidebar Mobile Toggle (original for small screens) ---
-        document.getElementById('sidebar-toggle-mobile').addEventListener('click', () => {
-             // On mobile, the sidebar is always fully expanded when open
-            const sidebar = document.getElementById('sidebar');
-            sidebar.classList.toggle('-translate-x-full');
-            
-            // For mobile, ensure it looks expanded when open
-            if (!sidebar.classList.contains('-translate-x-full')) {
-                sidebar.classList.remove('sidebar-collapsed');
-                sidebar.classList.add('sidebar-expanded');
-                document.getElementById('logo-collapsed').classList.add('hidden');
-                document.getElementById('logo-expanded').classList.remove('hidden');
-                document.querySelectorAll('.expanded-text').forEach(el => el.classList.remove('hidden'));
-                 document.getElementById('nav-dashboard').classList.remove('justify-center');
-                 document.getElementById('nav-dashboard').classList.add('justify-start');
-            } else {
-                 // Reset classes on close (not strictly necessary for functionality but good practice)
-                 sidebar.classList.add('sidebar-collapsed');
-                 sidebar.classList.remove('sidebar-expanded');
-            }
-        });
-
-        // --- 6. Mock Data and Interaction Functions ---
-
-        function downloadReport() {
-            alertMessage('info', 'Preparing Excel Report...');
-            setTimeout(() => {
-                alertMessage('success', 'Report generation complete! (A download would start in a real application)');
-            }, 1500);
+        // --- 5. Edit Options Toggle ---
+        function toggleEditOptions() {
+            const menu = document.getElementById("edit-options");
+            menu.classList.toggle("hidden");
         }
-        
+
+        // --- 6. Book Upload and Modal Functions ---
+
         async function processUpload() {
-    const file1 = document.getElementById('image-1-upload').files[0];
-    const file2 = document.getElementById('image-2-upload').files[0];
+            const image1 = document.getElementById('image-1-upload').files[0];
+            const image2 = document.getElementById('image-2-upload').files[0];
+            const statusDiv = document.getElementById('upload-status');
 
-    if (!file1 || !file2) {
-        alertMessage('error', 'Please upload both the Book Cover and the Title/ISBN Page images.');
-        return;
-    }
+            if (!image1 || !image2) {
+                alertMessage('error', 'Please upload both images first.');
+                return;
+            }
 
-    // Disable button during processing
-    const processBtn = document.getElementById('process-btn');
-    processBtn.disabled = true;
-    processBtn.innerHTML = '<i data-lucide="loader" class="w-5 h-5 inline mr-2 animate-spin"></i> Processing...';
+            const formData = new FormData();
+            formData.append('image1', image1);
+            formData.append('image2', image2);
 
-    const formData = new FormData();
-    formData.append('image1', file1);
-    formData.append('image2', file2);
+            statusDiv.classList.remove('hidden');
+            statusDiv.textContent = '⏳ Processing images... please wait.';
+            statusDiv.className = 'text-center p-4 rounded-xl text-sm bg-blue-100 text-blue-700';
 
-    try {
-        const response = await fetch(`${API_BASE}/process-book`, {
-            method: 'POST',
-            body: formData
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            alertMessage('success', result.message);
-            // Clear form
+            try {
+                const response = await fetch(`${API_BASE}/process-book`, {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                const result = await response.json();
+                console.log('📩 Server response:', result);
+
+                // Handle duplicate detection - FIXED LOGIC
+                if (result.book_exists === true && result.existing_book) {
+                    console.log("⚠️ Duplicate detected:", result.existing_book);
+                    window.pendingBookData = result.existing_book;
+                    showBookExistsModal(result.existing_book);
+                    statusDiv.classList.add('hidden');
+                    return; // stop here — don't continue
+                }
+
+                // Handle successful insert
+                if (result.success) {
+                    statusDiv.textContent = `✅ ${result.message}`;
+                    statusDiv.className = 'text-center p-4 rounded-xl text-sm bg-green-100 text-green-700';
+                    
+                    // Clear form on success
+                    document.getElementById('image-1-upload').value = null;
+                    document.getElementById('image-2-upload').value = null;
+                    
+                    // Refresh dashboard stats
+                    await refreshAfterUpload();
+                } else {
+                    statusDiv.textContent = `❌ ${result.message}`;
+                    statusDiv.className = 'text-center p-4 rounded-xl text-sm bg-red-100 text-red-700';
+                }
+
+            } catch (error) {
+                console.error('❌ Upload error:', error);
+                statusDiv.textContent = '❌ Server error. Please try again later.';
+                statusDiv.className = 'text-center p-4 rounded-xl text-sm bg-red-100 text-red-700';
+            }
+        }
+
+        function showBookExistsModal(book) {
+            const modal = document.getElementById('book-exists-modal');
+            document.getElementById('existing-book-title').textContent = `Title: ${book.title || 'Unknown Title'}`;
+            document.getElementById('existing-book-authors').textContent = `Author(s): ${book.authors || 'Unknown'}`;
+            document.getElementById('existing-book-count').textContent = `Current Count: ${book.count || 1}`;
+            
+            // Store the book data for later use
+            window.pendingBookData = book;
+            
+            modal.classList.remove('hidden');
+
+            // Clear form when modal is shown
             document.getElementById('image-1-upload').value = null;
             document.getElementById('image-2-upload').value = null;
-            
-            // Refresh dashboard stats and search results
-            await refreshAfterUpload(); // ← ADD THIS LINE
-        } else {
-            alertMessage('error', result.message);
         }
-    } catch (error) {
-        alertMessage('error', `Network error: ${error.message}`);
-    } finally {
-        // Re-enable button
-        processBtn.disabled = false;
-        processBtn.innerHTML = '<i data-lucide="zap" class="w-5 h-5 inline mr-2"></i> Process Images and Save Record';
-        initIcons();
-    }
-}
+
+        function hideBookExistsModal() {
+            document.getElementById('book-exists-modal').classList.add('hidden');
+            window.pendingBookData = null;
+        }
+
+        async function handleCountIncrement() {
+            if (!window.pendingBookData) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/update-book-count`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        control_no: window.pendingBookData.control_no,
+                        action: 'increment'
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    alertMessage('success', result.message);
+                    await refreshAfterUpload();
+                } else {
+                    alertMessage('error', result.message);
+                }
+            } catch (error) {
+                alertMessage('error', `Error updating count: ${error.message}`);
+            } finally {
+                hideBookExistsModal();
+            }
+        }
+
+        function handleCountCancel() {
+            alertMessage('info', 'No changes made to book count.');
+            hideBookExistsModal();
+        }
+
+        async function downloadReport() {
+            console.log('Download report clicked');
+            
+            alertMessage('info', 'Preparing Excel Report...');
+
+            try {
+                const response = await fetch(`${API_BASE}/download-excel`, {
+                    method: 'GET',
+                });
+
+                console.log('Download response status:', response.status);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Server response:', errorText);
+                    throw new Error(`Server error: ${response.status} - ${errorText}`);
+                }
+
+                // Check if response is JSON (error) or blob (file)
+                const contentType = response.headers.get('content-type');
+                console.log('Content-Type:', contentType);
+
+                if (contentType && contentType.includes('application/json')) {
+                    // It's a JSON error response
+                    const errorResult = await response.json();
+                    throw new Error(errorResult.error || errorResult.message || 'Unknown error');
+                }
+
+                // Convert response to blob (Excel file)
+                const blob = await response.blob();
+                console.log('Blob size:', blob.size);
+                
+                if (blob.size === 0) {
+                    throw new Error('Received empty file');
+                }
+
+                const url = window.URL.createObjectURL(blob);
+                
+                // Create a temporary link for download
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `LibraScan_Report_${new Date().toISOString().slice(0,19).replace(/[:T]/g, '-')}.xlsx`;
+                document.body.appendChild(link);
+                link.click();
+
+                // Cleanup
+                link.remove();
+                window.URL.revokeObjectURL(url);
+
+                alertMessage('success', 'Excel report downloaded successfully!');
+            } catch (error) {
+                console.error('Download error details:', error);
+                alertMessage('error', `Download failed: ${error.message}`);
+            }
+        }
 
         async function performSearch() {
-    const query = document.getElementById('search-input').value.trim();
-    const resultsArea = document.getElementById('results-table');
-    
-    try {
-        alertMessage('info', `Searching for: "${query}"...`);
-        
-        const response = await fetch(`${API_BASE}/search-books?q=${encodeURIComponent(query)}`);
-        const result = await response.json();
-        
-        if (result.success) {
-            if (result.books && result.books.length > 0) {
-                resultsArea.innerHTML = result.books.map(book => `
-                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
-                        <p class="font-bold text-lg text-blue-600">${book.title}</p>
-                        <p class="text-sm text-gray-700">Author: ${book.authors} | Publisher: ${book.publisher}</p>
-                        <p class="text-xs text-gray-500">Subjects: ${book.subjects} | ID: ${book.control_no}</p>
-                    </div>
-                `).join('');
-            } else {
-                resultsArea.innerHTML = `<p class="text-red-500 font-semibold">No results found for "${query}".</p>`;
+            const query = document.getElementById('search-input').value.trim();
+            const resultsArea = document.getElementById('results-table');
+            
+            try {
+                alertMessage('info', `Searching for: "${query}"...`);
+                
+                const response = await fetch(`${API_BASE}/search-books?q=${encodeURIComponent(query)}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    if (result.books && result.books.length > 0) {
+                        resultsArea.innerHTML = result.books.map(book => `
+                            <div class="glass p-4 rounded-xl border-l-4 border-blue-500 search-result">
+                                <p class="font-bold text-lg text-blue-600">${book.title}</p>
+                                <p class="text-sm text-gray-700">Author: ${book.authors} | Publisher: ${book.publisher}</p>
+                                <p class="text-xs text-gray-500">Subjects: ${book.subjects} | ID: ${book.control_no}</p>
+                            </div>
+                        `).join('');
+                    } else {
+                        resultsArea.innerHTML = `<p class="text-red-500 font-semibold">No results found for "${query}".</p>`;
+                    }
+                } else {
+                    resultsArea.innerHTML = `<p class="text-red-500 font-semibold">Search error: ${result.message}</p>`;
+                }
+                
+                document.getElementById('upload-status').classList.add('hidden');
+            } catch (error) {
+                alertMessage('error', `Search failed: ${error.message}`);
             }
-        } else {
-            resultsArea.innerHTML = `<p class="text-red-500 font-semibold">Search error: ${result.message}</p>`;
         }
-        
-        document.getElementById('upload-status').classList.add('hidden');
-    } catch (error) {
-        alertMessage('error', `Search failed: ${error.message}`);
-    }
-}
 
         function alertMessage(type, message) {
             const statusDiv = document.getElementById('upload-status');
@@ -479,70 +828,336 @@
                     break;
             }
             
-            statusDiv.className = `text-center p-3 rounded-lg text-sm transition-opacity duration-300 ${className}`;
+            statusDiv.className = `text-center p-4 rounded-xl text-sm transition-opacity duration-300 ${className}`;
             statusDiv.innerHTML = `<i data-lucide="${type === 'error' ? 'alert-triangle' : type === 'success' ? 'check-circle' : 'info'}" class="w-4 h-4 inline mr-2 align-text-bottom"></i> ${message}`;
             initIcons(); 
         }
-       // Function to fetch and update dashboard stats
-async function updateDashboardStats() {
-    try {
-        console.log('Fetching dashboard stats...');
-        const response = await fetch(`${API_BASE}/dashboard-stats`);
         
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        console.log('Dashboard stats result:', result);
-        
-        if (result.success) {
-            const stats = result.stats;
-            
-            // Update total books
-            const totalBooksEl = document.getElementById('total-books');
-            if (totalBooksEl) {
-                totalBooksEl.textContent = stats.total_books.toLocaleString();
+        // Function to fetch and update dashboard stats
+        async function updateDashboardStats() {
+            try {
+                console.log('Fetching dashboard stats...');
+                const response = await fetch(`${API_BASE}/dashboard-stats`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                console.log('Dashboard stats result:', result);
+                
+                if (result.success) {
+                    const stats = result.stats;
+                    
+                    // Update total books
+                    const totalBooksEl = document.getElementById('total-books');
+                    if (totalBooksEl) {
+                        totalBooksEl.textContent = stats.total_books.toLocaleString();
+                    }
+                    
+                    // Update today's records
+                    const todayRecordsEl = document.getElementById('today-records');
+                    if (todayRecordsEl) {
+                        todayRecordsEl.textContent = stats.today_records.toLocaleString();
+                    }
+                } else {
+                    console.error('Failed to fetch stats:', result.message);
+                    // Keep the default static values if API fails
+                }
+            } catch (error) {
+                console.error('Error fetching dashboard stats:', error);
+                // Keep the default static values if there's an error
             }
-            
-            // Update today's records
-            const todayRecordsEl = document.getElementById('today-records');
-            if (todayRecordsEl) {
-                todayRecordsEl.textContent = stats.today_records.toLocaleString();
-            }
-        } else {
-            console.error('Failed to fetch stats:', result.message);
-            // Keep the default static values if API fails
         }
-    } catch (error) {
-        console.error('Error fetching dashboard stats:', error);
-        // Keep the default static values if there's an error
-    }
-}
 
-// Function to refresh stats after book upload
-async function refreshAfterUpload() {
-    await updateDashboardStats();
-    // Also refresh search results if we're on search page
-    if (currentPage === 'search_book') {
-        await performSearch();
-    }
-}
+        // Function to refresh stats after book upload
+        async function refreshAfterUpload() {
+            await updateDashboardStats();
+            // Also refresh search results if we're on search page
+            if (currentPage === 'search_book') {
+                await performSearch();
+            }
+        }
 
+        // === EDIT BOOK INFO (Search by Title) ===
+        function openEditBook() {
+            currentPage = 'edit_book';
+            const views = document.querySelectorAll('.page-view');
+            const backButton = document.getElementById('back-button');
+            const pageTitleEl = document.getElementById('page-title');
+
+            views.forEach(view => {
+                view.classList.add('page-hidden');
+            });
+
+            // Create edit book view if it doesn't exist
+            let editView = document.getElementById('edit_book-view');
+            if (!editView) {
+                editView = document.createElement('div');
+                editView.id = 'edit_book-view';
+                editView.className = 'page-view';
+                document.getElementById('page-content').appendChild(editView);
+            }
+
+            editView.innerHTML = `
+                <h2 class="text-2xl font-semibold mb-4">✏️ Edit Book Information</h2>
+                <div class="glass p-6 rounded-2xl shadow-lg">
+                    <div class="flex gap-2 items-center mb-4">
+                        <input type="text" id="searchTitle" placeholder="Enter Book Title Keyword"
+                            class="border p-2 rounded w-72 focus:ring focus:ring-blue-300">
+                        <button onclick="searchBooksForEdit()"
+                            class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">Search</button>
+                    </div>
+                    <div id="bookResults" class="space-y-2"></div>
+                    <div id="editBookFormContainer" class="mt-6 hidden bg-white shadow p-6 rounded-xl"></div>
+                </div>`;
+
+            editView.classList.remove('page-hidden');
+            pageTitleEl.textContent = 'Edit Book Information';
+            backButton.classList.remove('hidden');
+            backButton.classList.add('flex');
+            
+            initIcons();
+        }
+
+
+        async function searchBooksForEdit() {
+            const title = document.getElementById("searchTitle").value.trim();
+            const resultsDiv = document.getElementById("bookResults");
+            if (!title) return alert("Please enter a title keyword.");
+
+            resultsDiv.innerHTML = `<p class="text-gray-500 italic">Searching...</p>`;
+            const res = await fetch(`${API_BASE}/get-book-by-title/${encodeURIComponent(title)}`);
+            const data = await res.json();
+
+            if (!data.success) {
+                resultsDiv.innerHTML = `<p class="text-red-500">${data.message || "No results found"}</p>`;
+                return;
+            }
+
+            const books = data.data;
+            resultsDiv.innerHTML = books.map(b => `
+                <div onclick="openEditForm('${b.control_no}')"
+                    class="cursor-pointer p-3 rounded-lg hover:bg-blue-50 border-b border-gray-200">
+                    <p class="font-semibold text-blue-700">${b.title}</p>
+                    <p class="text-sm text-gray-600">Author: ${b.author || 'Unknown'} | Publisher: ${b.publisher?.name || 'Unknown'}</p>
+                    <p class="text-xs text-gray-400">Control No: ${b.control_no} | Edition: ${b.edition || '-'}</p>
+                </div>
+            `).join('');
+        }
+
+        async function openEditForm(control_no) {
+            const res = await fetch(`${API_BASE}/get-book/${control_no}`);
+            const data = await res.json();
+            if (!data.success) return alert("Book not found!");
+
+            const b = data.data;
+            const formDiv = document.getElementById("editBookFormContainer");
+            formDiv.classList.remove("hidden");
+            formDiv.innerHTML = `
+                <form id="editBookForm" class="space-y-3">
+                    <div><label class="block font-semibold">Control No</label>
+                        <input type="text" value="${b.control_no}" class="border p-2 rounded w-full bg-gray-100" disabled>
+                    </div>
+                    <div><label class="block font-semibold">Title</label>
+                        <input type="text" id="title" value="${b.title || ''}" class="border p-2 rounded w-full">
+                    </div>
+                    <div><label class="block font-semibold">Author</label>
+                        <input type="text" id="author" value="${b.author || ''}" class="border p-2 rounded w-full">
+                    </div>
+                    <div><label class="block font-semibold">Publisher</label>
+                        <input type="text" id="publisher" value="${b.publisher?.name || ''}" class="border p-2 rounded w-full">
+                    </div>
+                    <div><label class="block font-semibold">Edition</label>
+                        <input type="text" id="edition" value="${b.edition || ''}" class="border p-2 rounded w-full">
+                    </div>
+                    <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">
+                        Save Changes
+                    </button>
+                </form>
+            `;
+
+            document.getElementById("editBookForm").onsubmit = async (e) => {
+                e.preventDefault();
+                const payload = {
+                    title: document.getElementById("title").value,
+                    author: document.getElementById("author").value,
+                    publisher: document.getElementById("publisher").value,
+                    edition: document.getElementById("edition").value
+                };
+                const updateRes = await fetch(`${API_BASE}/update-book/${b.control_no}`, {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify(payload)
+                });
+                const result = await updateRes.json();
+                alert(result.message || "Update complete!");
+            };
+        }
+
+        // === DELETE BOOKS PAGE ===
+        function openDeleteBooks() {
+            currentPage = 'delete_books';
+            const views = document.querySelectorAll('.page-view');
+            const backButton = document.getElementById('back-button');
+            const pageTitleEl = document.getElementById('page-title');
+
+            views.forEach(view => {
+                view.classList.add('page-hidden');
+            });
+
+            // Create delete books view if it doesn't exist
+            let deleteView = document.getElementById('delete_books-view');
+            if (!deleteView) {
+                deleteView = document.createElement('div');
+                deleteView.id = 'delete_books-view';
+                deleteView.className = 'page-view';
+                document.getElementById('page-content').appendChild(deleteView);
+            }
+
+            deleteView.innerHTML = `
+                <h2 class="text-2xl font-semibold mb-4 text-red-600">🗑️ Delete Books</h2>
+                <div class="glass p-6 rounded-2xl shadow-lg">
+                    <p class="text-gray-600 mb-4">Select books to delete from the list below:</p>
+                    <div id="bookList" class="max-h-[400px] overflow-y-auto border rounded-lg p-4 bg-white"></div>
+                    <button onclick="confirmDeletion()" class="mt-4 bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg font-semibold">Delete Selected</button>
+                </div>`;
+
+            deleteView.classList.remove('page-hidden');
+            pageTitleEl.textContent = 'Delete Books';
+            backButton.classList.remove('hidden');
+            backButton.classList.add('flex');
+            
+            fetchBooksForDeletion();
+            initIcons();
+        }
+
+        async function fetchBooksForDeletion() {
+            try {
+                const res = await fetch(`${API_BASE}/books-list`);
+                const data = await res.json();
+
+                const listDiv = document.getElementById('bookList');
+                if (!data.success || !data.data.length) {
+                    listDiv.innerHTML = `<p class="text-gray-500 italic">No books found.</p>`;
+                    return;
+                }
+
+                listDiv.innerHTML = data.data.map(book => `
+                <label class="flex items-center border-b py-2 cursor-pointer">
+                    <input type="checkbox" value="${book.control_no}" class="mr-3">
+                    <span>
+                        <span class="font-semibold text-gray-800">${book.title || 'Unknown Title'}</span><br>
+                        <span class="text-sm text-gray-500">
+                            Control No: ${book.control_no} | Created: ${new Date(book.created_at).toLocaleString('en-IN')}
+                        </span>
+                    </span>
+                </label>
+            `).join('');
+            } catch (err) {
+                alert('Error loading books: ' + err.message);
+            }
+        }
+
+        async function confirmDeletion() {
+            const checked = [...document.querySelectorAll('#bookList input[type=checkbox]:checked')].map(cb => cb.value);
+            if (!checked.length) return alert('Please select at least one book to delete.');
+
+            if (!confirm(`Are you sure you want to delete ${checked.length} book(s)? This action cannot be undone.`)) return;
+
+            const res = await fetch(`${API_BASE}/delete-books`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({control_nos: checked})
+        });
+
+            const result = await res.json();
+            alert(result.message || 'Deletion complete.');
+            openDeleteBooks(); // refresh list
+        }
+
+        // Global function to always return to Dashboard
+        async function openDashboard() {
+            // Re-render dashboard without full reload
+            document.getElementById('page-content').innerHTML = `
+                <div id="dashboard-view" class="page-view">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="glass p-8 rounded-2xl shadow-lg card-hover cursor-pointer" 
+                            onclick="navigateTo('add_book')">
+                            <div class="flex items-center mb-4">
+                                <div class="gradient-purple p-3 rounded-xl mr-4">
+                                    <i data-lucide="book-plus" class="w-8 h-8 text-white"></i>
+                                </div>
+                                <h2 class="text-2xl font-bold text-gray-700">Add New Book</h2>
+                            </div>
+                            <p class="text-gray-500">Upload book images (cover and ISBN page) for automated record creation.</p>
+                        </div>
+                        <div class="glass p-8 rounded-2xl shadow-lg card-hover cursor-pointer"
+                            onclick="navigateTo('search_book')">
+                            <div class="flex items-center mb-4">
+                                <div class="gradient-green p-3 rounded-xl mr-4">
+                                    <i data-lucide="search" class="w-8 h-8 text-white"></i>
+                                </div>
+                                <h2 class="text-2xl font-bold text-gray-700">Search Library</h2>
+                            </div>
+                            <p class="text-gray-500">Quickly find records by title, author, ISBN, or publisher.</p>
+                        </div>
+                    </div>
+
+                    <div class="mt-8">
+                        <h2 class="text-3xl font-bold text-gray-700 mb-4">System Overview</h2>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
+                            <div class="glass p-6 rounded-2xl shadow-md stats-card border-l-4 border-yellow-500">
+                                <div class="flex items-center">
+                                    <div class="bg-yellow-100 p-3 rounded-lg mr-4">
+                                        <i data-lucide="book-open" class="w-8 h-8 text-yellow-600"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-500">Total Books</p>
+                                        <p id="total-books" class="text-4xl font-extrabold text-gray-900 mt-1">0</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="glass p-6 rounded-2xl shadow-md stats-card border-l-4 border-red-500">
+                                <div class="flex items-center">
+                                    <div class="bg-red-100 p-3 rounded-lg mr-4">
+                                        <i data-lucide="calendar" class="w-8 h-8 text-red-600"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-500">Records Added Today</p>
+                                        <p id="today-records" class="text-4xl font-extrabold text-gray-900 mt-1">0</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            
+            await updateDashboardStats();
+            document.getElementById("page-title").textContent = "Welcome Back to LibraScan!";
+            initIcons();
+        }
 
         // --- 7. Initialization ---
         document.addEventListener('DOMContentLoaded', () => {
-            // Attach toggle function to the new desktop toggle button
-            document.getElementById('sidebar-toggle-desktop').addEventListener('click', toggleSidebar);
+            // Attach toggle function to the sidebar toggle button
+            document.getElementById('sidebar-toggle').addEventListener('click', toggleSidebar);
+            
+            // Add modal event listeners
+            document.getElementById('confirm-increment').addEventListener('click', handleCountIncrement);
+            document.getElementById('cancel-increment').addEventListener('click', handleCountCancel);
+            
+            // Close modal when clicking outside
+            document.getElementById('book-exists-modal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    handleCountCancel();
+                }
+            });
+            
             
             // Start the splash timer
             setTimeout(hideSplashScreen, 3000);
             
-            // Set initial state (sidebar collapsed by default on desktop)
-            // Call once to set initial collapsed state for all elements
-            sidebarExpanded = true; // Set to true so the first call to toggle collapses it
-            toggleSidebar(); // Collapse the sidebar on load
-
             // Set initial navigation state once the app is visible
             navigateTo('dashboard');
             
