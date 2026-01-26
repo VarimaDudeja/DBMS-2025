@@ -4,7 +4,6 @@ from PIL import Image
 import json
 import os
 from insert_data import store_extracted_data, create_supabase_client
-from insert_data import store_extracted_data, create_supabase_client
 
 #  Optional: If Tesseract is not in PATH
 # pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
@@ -110,5 +109,6 @@ if __name__ == "__main__":
     supabase = create_supabase_client()
     store_extracted_data(supabase, data)
     print(" Data insertion complete.\n")
+
 
 
